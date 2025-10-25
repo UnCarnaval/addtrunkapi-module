@@ -71,8 +71,16 @@ cp uninstall.php "$MODULE_DIR/"
 cp config.php "$MODULE_DIR/"
 cp functions.php "$MODULE_DIR/"
 cp security.php "$MODULE_DIR/"
-cp README.md "$MODULE_DIR/"
-cp LICENSE "$MODULE_DIR/"
+
+# Copiar README si existe
+if [ -f "README.md" ]; then
+    cp README.md "$MODULE_DIR/"
+fi
+
+# Copiar LICENSE si existe
+if [ -f "LICENSE" ]; then
+    cp LICENSE "$MODULE_DIR/"
+fi
 
 # Copiar archivos Node.js
 cp app.js "$NODEJS_DIR/"
@@ -102,6 +110,13 @@ npm install --production
 
 # Crear servicio systemd
 print_message "Creando servicio systemd..."
+
+# Verificar si el usuario asterisk existe
+if ! id "asterisk" &>/dev/null; then
+    print_message "Usuario asterisk no encontrado, creando usuario..."
+    useradd -r -s /bin/false asterisk
+fi
+
 cat > /etc/systemd/system/trunkmanager-api.service << 'EOF'
 [Unit]
 Description=Trunk Manager API Service
@@ -113,8 +128,8 @@ ExecStart=/usr/bin/node /var/www/html/admin/modules/trunkmanager/nodejs/app.js
 WorkingDirectory=/var/www/html/admin/modules/trunkmanager/nodejs
 Restart=always
 RestartSec=10
-User=asterisk
-Group=asterisk
+User=root
+Group=root
 Environment=NODE_ENV=production
 
 [Install]
