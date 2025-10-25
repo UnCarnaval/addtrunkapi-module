@@ -128,7 +128,17 @@ app.get('/health', (req, res) => {
 
 app.delete('/delete-trunk/:trunkName', (req, res) => {
     const { trunkName } = req.params;
-    const filePath = `${PJSIP_DIR}${trunkName}.conf`;
+    
+    // Verificar que el nombre del trunk incluya el proveedor (formato: proveedor_nombre)
+    if (!trunkName.includes('_')) {
+        return res.status(200).json({ 
+            error: "Debe proporcionar el nombre completo del trunk (formato: proveedor_nombre). Ejemplo: telnyx_ABC123" 
+        });
+    }
+    
+    // Extraer solo la parte del nombre del archivo (después del proveedor_)
+    const fileName = trunkName.split('_').slice(1).join('_'); // En caso de múltiples guiones bajos
+    const filePath = `${PJSIP_DIR}${fileName}.conf`;
 
     if (!fs.existsSync(filePath)) {
         return res.status(200).json({ error: "El trunk no existe." });
