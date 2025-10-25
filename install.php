@@ -14,58 +14,68 @@ if (!defined('FREEPBX_IS_AUTH')) {
 function trunkmanager_install() {
     global $db;
     
-    // Crear tabla para almacenar configuración del módulo
-    $sql = "CREATE TABLE IF NOT EXISTS trunkmanager_config (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        api_port INT DEFAULT 56201,
-        api_enabled TINYINT(1) DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )";
-    
-    $result = $db->query($sql);
-    if ($result === false) {
-        return false;
-    }
-    
-    // Insertar configuración por defecto
-    $sql = "INSERT INTO trunkmanager_config (api_port, api_enabled) VALUES (56201, 1)";
-    $db->query($sql);
-    
-    // Crear directorio para el servicio Node.js
-    $nodejs_dir = '/var/www/html/admin/modules/trunkmanager/nodejs';
-    if (!file_exists($nodejs_dir)) {
-        mkdir($nodejs_dir, 0755, true);
-    }
-    
-    // Copiar archivos de la API Node.js
-    $source_files = [
-        'app.js' => $nodejs_dir . '/app.js',
-        'package.json' => $nodejs_dir . '/package.json'
-    ];
-    
-    foreach ($source_files as $source => $dest) {
-        if (file_exists($source)) {
-            copy($source, $dest);
+    try {
+        // Crear tabla para almacenar configuración del módulo
+        $sql = "CREATE TABLE IF NOT EXISTS trunkmanager_config (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            api_port INT DEFAULT 56201,
+            api_enabled TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )";
+        
+        $result = $db->query($sql);
+        if ($result === false) {
+            throw new Exception("Error creating database table");
         }
-    }
-    
-    // Copiar directorio examples
-    $examples_source = 'examples';
-    $examples_dest = $nodejs_dir . '/examples';
-    if (is_dir($examples_source)) {
-        if (!is_dir($examples_dest)) {
-            mkdir($examples_dest, 0755, true);
+        
+        // Insertar configuración por defecto (si no existe)
+        $sql = "INSERT IGNORE INTO trunkmanager_config (api_port, api_enabled) VALUES (56201, 1)";
+        $db->query($sql);
+        
+        // Crear directorio para el servicio Node.js
+        $nodejs_dir = '/var/www/html/admin/modules/trunkmanager/nodejs';
+        if (!file_exists($nodejs_dir)) {
+            mkdir($nodejs_dir, 0755, true);
         }
-        trunkmanager_copy_directory($examples_source, $examples_dest);
-    }
-    
-    // Instalar dependencias de Node.js
-    $install_cmd = "cd $nodejs_dir && npm install";
-    exec($install_cmd, $output, $return_code);
-    
-    // Crear archivo de servicio systemd
-    $service_content = "[Unit]
+        
+        // Copiar archivos de la API Node.js
+        $source_files = [
+            'app.js' => $nodejs_dir . '/app.js',
+            'package.json' => $nodejs_dir . '/package.json'
+        ];
+        
+        foreach ($source_files as $source => $dest) {
+            if (file_exists($source)) {
+                copy($source, $dest);
+            }
+        }
+        
+        // Copiar directorio examples
+        $examples_source = 'examples';
+        $examples_dest = $nodejs_dir . '/examples';
+        if (is_dir($examples_source)) {
+            if (!is_dir($examples_dest)) {
+                mkdir($examples_dest, 0755, true);
+            }
+            trunkmanager_copy_directory($examples_source, $examples_dest);
+        }
+        
+        // Configurar permisos
+        chown($nodejs_dir, 'asterisk');
+        chgrp($nodejs_dir, 'asterisk');
+        chmod($nodejs_dir, 0755);
+        
+        // Instalar dependencias de Node.js
+        $install_cmd = "cd $nodejs_dir && npm install --production 2>&1";
+        exec($install_cmd, $output, $return_code);
+        
+        if ($return_code !== 0) {
+            throw new Exception("Error installing Node.js dependencies: " . implode("\n", $output));
+        }
+        
+        // Crear archivo de servicio systemd
+        $service_content = "[Unit]
 Description=Trunk Manager API Service
 After=network.target
 
@@ -75,27 +85,37 @@ ExecStart=/usr/bin/node $nodejs_dir/app.js
 WorkingDirectory=$nodejs_dir
 Restart=always
 RestartSec=10
-User=www-data
-Group=www-data
+User=root
+Group=root
 Environment=NODE_ENV=production
 
 [Install]
 WantedBy=multi-user.target";
 
-    file_put_contents('/etc/systemd/system/trunkmanager-api.service', $service_content);
-    
-    // Recargar systemd y habilitar servicio
-    exec('systemctl daemon-reload');
-    exec('systemctl enable trunkmanager-api');
-    exec('systemctl start trunkmanager-api');
-    
-    // Crear directorio de configuración de trunks si no existe
-    $trunks_dir = '/etc/asterisk/trunks';
-    if (!is_dir($trunks_dir)) {
-        mkdir($trunks_dir, 0755, true);
+        file_put_contents('/etc/systemd/system/trunkmanager-api.service', $service_content);
+        
+        // Recargar systemd y habilitar servicio
+        exec('systemctl daemon-reload');
+        exec('systemctl enable trunkmanager-api');
+        exec('systemctl start trunkmanager-api');
+        
+        // Crear directorio de configuración de trunks si no existe
+        $trunks_dir = '/etc/asterisk/trunks';
+        if (!is_dir($trunks_dir)) {
+            mkdir($trunks_dir, 0755, true);
+        }
+        
+        // Configurar permisos del directorio de trunks
+        chown($trunks_dir, 'asterisk');
+        chgrp($trunks_dir, 'asterisk');
+        chmod($trunks_dir, 0755);
+        
+        return true;
+        
+    } catch (Exception $e) {
+        error_log("Trunk Manager installation error: " . $e->getMessage());
+        return false;
     }
-    
-    return true;
 }
 
 // Función auxiliar para copiar directorios recursivamente
