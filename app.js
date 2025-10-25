@@ -98,7 +98,7 @@ app.post('/add-trunk', (req, res) => {
             if (index >= commands.length) {
                 return res.json({ 
                     message: `Trunk ${trunkName} agregado y recargado correctamente.`,
-                    trunk: `${type}${trunkName}`,
+                    trunk: `${type}_${trunkName}`,
                     detected_provider: type,
                     server: server
                 });
