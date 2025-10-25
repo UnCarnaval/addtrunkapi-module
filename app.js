@@ -53,16 +53,22 @@ app.post('/add-trunk', (req, res) => {
 
     // Si se proporciona un nombre de trunk completo, extraer solo la parte del archivo
     let trunkName;
+    let fullTrunkName;
+    
     if (trunk) {
         // Si viene como "telnyx_DMseO", extraer "_DMseO"
         if (trunk.includes('_')) {
             trunkName = trunk.split('_').slice(1).join('_');
+            fullTrunkName = trunk;
         } else {
             trunkName = trunk;
+            fullTrunkName = `${type}_${trunk}`;
         }
     } else {
         // Generar nombre automático si no se proporciona
-        trunkName = `_${randString.generate(5)}`;
+        const hash = randString.generate(5);
+        trunkName = `_${hash}`;
+        fullTrunkName = `${type}_${hash}`;
     }
 
     if (!username || !password || !server) {
@@ -98,7 +104,7 @@ app.post('/add-trunk', (req, res) => {
             if (index >= commands.length) {
                 return res.json({ 
                     message: `Trunk ${trunkName} agregado y recargado correctamente.`,
-                    trunk: `${type}_${trunkName}`,
+                    trunk: fullTrunkName,
                     detected_provider: type,
                     server: server
                 });
