@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Script para Reparar Módulo Roto en FreePBX
-# Limpia instalación anterior y reinstala correctamente
+# Script para Reparar Módulo Roto en FreePBX (Sin MySQL)
+# Versión simplificada que no requiere contraseña de MySQL
 
 set -e
 
@@ -27,6 +27,7 @@ print_warning() {
 print_header() {
     echo -e "${BLUE}================================${NC}"
     echo -e "${BLUE}  Reparar Módulo Roto FreePBX${NC}"
+    echo -e "${BLUE}  (Sin MySQL - Versión Simple)${NC}"
     echo -e "${BLUE}================================${NC}"
 }
 
@@ -39,7 +40,7 @@ fi
 
 print_header
 
-print_message "Reparando módulo Trunk Manager roto..."
+print_message "Reparando módulo Trunk Manager roto (sin MySQL)..."
 
 # 1. Detener servicio
 print_message "1. Deteniendo servicio..."
@@ -68,42 +69,37 @@ if [ -d "$MODULE_DIR" ]; then
     print_message "✓ Directorio del módulo eliminado"
 fi
 
-# 5. Limpiar base de datos FreePBX
-print_message "2. Limpiando base de datos..."
-mysql -u freepbxuser -p4faiIBd3iPUQ -h localhost asterisk -e "DROP TABLE IF EXISTS trunkmanager_config;" 2>/dev/null || true
-print_message "✓ Tabla de configuración eliminada"
-
-# 6. Limpiar cache de FreePBX
-print_message "3. Limpiando cache de FreePBX..."
+# 5. Limpiar cache de FreePBX
+print_message "2. Limpiando cache de FreePBX..."
 rm -rf /var/www/html/admin/modules/_cache/*
 rm -rf /var/www/html/admin/modules/.module_installer_cache/*
 print_message "✓ Cache limpiado"
 
-# 7. Descargar módulo corregido
-print_message "4. Descargando módulo corregido..."
+# 6. Descargar módulo corregido
+print_message "3. Descargando módulo corregido..."
 cd /tmp
 rm -rf addtrunkapi-module-main main.zip
 wget -O main.zip https://github.com/UnCarnaval/addtrunkapi-module/archive/refs/heads/main.zip
 unzip main.zip
 print_message "✓ Módulo descargado"
 
-# 8. Instalar módulo corregido
-print_message "5. Instalando módulo corregido..."
+# 7. Instalar módulo corregido
+print_message "4. Instalando módulo corregido..."
 mkdir -p "$MODULE_DIR"
 cp -r addtrunkapi-module-main/* "$MODULE_DIR/"
 
-# 9. Configurar permisos correctos
-print_message "6. Configurando permisos..."
+# 8. Configurar permisos correctos
+print_message "5. Configurando permisos..."
 chown -R asterisk:asterisk "$MODULE_DIR"
 chmod -R 755 "$MODULE_DIR"
 
-# 10. Instalar dependencias Node.js
-print_message "7. Instalando dependencias Node.js..."
+# 9. Instalar dependencias Node.js
+print_message "6. Instalando dependencias Node.js..."
 cd "$MODULE_DIR/nodejs"
 npm install --production
 
-# 11. Crear servicio systemd corregido
-print_message "8. Creando servicio systemd..."
+# 10. Crear servicio systemd corregido
+print_message "7. Creando servicio systemd..."
 cat > /etc/systemd/system/trunkmanager-api.service << 'EOF'
 [Unit]
 Description=Trunk Manager API Service
@@ -123,14 +119,14 @@ Environment=NODE_ENV=production
 WantedBy=multi-user.target
 EOF
 
-# 12. Habilitar y iniciar servicio
-print_message "9. Iniciando servicio..."
+# 11. Habilitar y iniciar servicio
+print_message "8. Iniciando servicio..."
 systemctl daemon-reload
 systemctl enable trunkmanager-api
 systemctl start trunkmanager-api
 
-# 13. Verificar instalación
-print_message "10. Verificando instalación..."
+# 12. Verificar instalación
+print_message "9. Verificando instalación..."
 sleep 3
 
 if systemctl is-active --quiet trunkmanager-api; then
@@ -147,10 +143,10 @@ else
     print_warning "⚠ API no responde (puede tardar unos segundos)"
 fi
 
-# 14. Limpiar archivos temporales
+# 13. Limpiar archivos temporales
 rm -rf /tmp/addtrunkapi-module-main /tmp/main.zip
 
-# 15. Mostrar información final
+# 14. Mostrar información final
 echo ""
 print_message "Reparación completada!"
 echo ""
@@ -160,8 +156,6 @@ echo "2. Ir a Admin → Module Admin"
 echo "3. Buscar 'Trunk Manager' y hacer clic en 'Install'"
 echo "4. El módulo debería aparecer como 'Stable' en lugar de 'Broken'"
 echo ""
-print_message "Si el módulo sigue apareciendo como 'Broken':"
-echo "1. Hacer clic en 'View' para ver errores específicos"
-echo "2. Verificar logs de FreePBX en /var/log/asterisk/"
-echo "3. Reiniciar FreePBX: fwconsole reload"
+print_message "Nota: Esta versión no usa base de datos MySQL"
+print_message "El módulo funcionará correctamente sin configuración de BD"
 echo ""
