@@ -46,13 +46,26 @@ const changeVars = (template, variables) => {
 
 
 app.post('/add-trunk', (req, res) => {
-    const { username, password, server } = req.body;
+    const { username, password, server, trunk } = req.body;
 
     // Detectar automáticamente el tipo de proveedor
     const type = detectProviderType(server);
 
-    const trunkName = `_${randString.generate(5)}`;
-    if (!trunkName || !username || !password || !server) {
+    // Si se proporciona un nombre de trunk completo, extraer solo la parte del archivo
+    let trunkName;
+    if (trunk) {
+        // Si viene como "telnyx_DMseO", extraer "_DMseO"
+        if (trunk.includes('_')) {
+            trunkName = trunk.split('_').slice(1).join('_');
+        } else {
+            trunkName = trunk;
+        }
+    } else {
+        // Generar nombre automático si no se proporciona
+        trunkName = `_${randString.generate(5)}`;
+    }
+
+    if (!username || !password || !server) {
         return res.status(200).json({ error: "Missing parameters. Required: username, password, server" });
     }
 
@@ -128,7 +141,16 @@ app.get('/health', (req, res) => {
 
 app.delete('/delete-trunk/:trunkName', (req, res) => {
     const { trunkName } = req.params;
-    const filePath = `${PJSIP_DIR}${trunkName}.conf`;
+    
+    // Si viene como "telnyx_DMseO", extraer solo "_DMseO" para el archivo
+    let fileName;
+    if (trunkName.includes('_')) {
+        fileName = trunkName.split('_').slice(1).join('_');
+    } else {
+        fileName = trunkName;
+    }
+    
+    const filePath = `${PJSIP_DIR}${fileName}.conf`;
 
     if (!fs.existsSync(filePath)) {
         return res.status(200).json({ error: "El trunk no existe." });
