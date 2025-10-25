@@ -209,7 +209,8 @@ install_nodejs_dependencies() {
 create_systemd_service() {
     print_message "Creando servicio systemd..."
     
-    cat > /etc/systemd/system/trunkmanager-api.service << EOF
+    # Crear archivo de servicio con sudo
+    sudo tee /etc/systemd/system/trunkmanager-api.service > /dev/null << EOF
 [Unit]
 Description=Trunk Manager API Service
 After=network.target
@@ -229,8 +230,8 @@ WantedBy=multi-user.target
 EOF
     
     # Recargar systemd y habilitar servicio
-    systemctl daemon-reload
-    systemctl enable trunkmanager-api
+    sudo systemctl daemon-reload
+    sudo systemctl enable trunkmanager-api
     
     print_message "Servicio systemd creado y habilitado"
 }
@@ -241,8 +242,8 @@ configure_firewall() {
     
     # Verificar si firewalld está instalado
     if command -v firewall-cmd &> /dev/null; then
-        firewall-cmd --permanent --add-port=56201/tcp
-        firewall-cmd --reload
+        sudo firewall-cmd --permanent --add-port=56201/tcp
+        sudo firewall-cmd --reload
         print_message "Firewall configurado para puerto 56201"
     else
         print_warning "firewalld no está instalado, configurar firewall manualmente"
@@ -253,17 +254,17 @@ configure_firewall() {
 start_service() {
     print_message "Iniciando servicio..."
     
-    systemctl start trunkmanager-api
+    sudo systemctl start trunkmanager-api
     
     # Esperar un momento y verificar estado
     sleep 3
     
-    if systemctl is-active --quiet trunkmanager-api; then
+    if sudo systemctl is-active --quiet trunkmanager-api; then
         print_message "Servicio iniciado correctamente"
     else
         print_error "Error al iniciar el servicio"
         print_message "Verificando logs:"
-        journalctl -u trunkmanager-api --no-pager -n 10
+        sudo journalctl -u trunkmanager-api --no-pager -n 10
         exit 1
     fi
 }
@@ -273,7 +274,7 @@ verify_installation() {
     print_message "Verificando instalación..."
     
     # Verificar servicio
-    if systemctl is-active --quiet trunkmanager-api; then
+    if sudo systemctl is-active --quiet trunkmanager-api; then
         print_message "✓ Servicio activo"
     else
         print_error "✗ Servicio no activo"
@@ -320,13 +321,13 @@ show_post_install_info() {
     echo -e "${YELLOW}Información del servicio:${NC}"
     echo "• Servicio: trunkmanager-api"
     echo "• Puerto API: 56201"
-    echo "• Estado: $(systemctl is-active trunkmanager-api)"
-    echo "• Logs: journalctl -u trunkmanager-api -f"
+    echo "• Estado: $(sudo systemctl is-active trunkmanager-api)"
+    echo "• Logs: sudo journalctl -u trunkmanager-api -f"
     echo ""
     echo -e "${YELLOW}Comandos útiles:${NC}"
-    echo "• Reiniciar servicio: systemctl restart trunkmanager-api"
-    echo "• Ver estado: systemctl status trunkmanager-api"
-    echo "• Ver logs: journalctl -u trunkmanager-api -f"
+    echo "• Reiniciar servicio: sudo systemctl restart trunkmanager-api"
+    echo "• Ver estado: sudo systemctl status trunkmanager-api"
+    echo "• Ver logs: sudo journalctl -u trunkmanager-api -f"
     echo ""
 }
 
