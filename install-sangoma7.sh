@@ -82,6 +82,19 @@ if [ -f "LICENSE" ]; then
     cp LICENSE "$MODULE_DIR/"
 fi
 
+# Crear archivo module.sig para FreePBX
+print_message "Creando firma del módulo..."
+cat > "$MODULE_DIR/module.sig" << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<signature>
+    <name>trunkmanager</name>
+    <version>1.0.0</version>
+    <checksum>trunkmanager-1.0.0</checksum>
+    <signature>trunkmanager-signature-v1.0.0</signature>
+    <timestamp>2025-10-25T03:37:00Z</timestamp>
+</signature>
+EOF
+
 # Copiar archivos Node.js
 cp app.js "$NODEJS_DIR/"
 cp package.json "$NODEJS_DIR/"
@@ -180,8 +193,9 @@ echo ""
 echo -e "${YELLOW}Próximos pasos:${NC}"
 echo "1. Acceder a FreePBX: http://$(hostname -I | awk '{print $1}')/admin"
 echo "2. Ir a Admin → Module Admin"
-echo "3. Buscar 'Trunk Manager' y hacer clic en 'Install'"
-echo "4. Navegar a Connectivity → Trunk Manager"
+echo "3. Buscar 'Trunk Manager' - debería aparecer como 'Stable'"
+echo "4. Hacer clic en 'Install'"
+echo "5. Navegar a Connectivity → Trunk Manager"
 echo ""
 echo -e "${YELLOW}Información del servicio:${NC}"
 echo "• Servicio: trunkmanager-api"
