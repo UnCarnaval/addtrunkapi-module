@@ -51,7 +51,7 @@ app.post('/add-trunk', (req, res) => {
     // Detectar automáticamente el tipo de proveedor
     const type = detectProviderType(server);
 
-    const trunkName = `Trunk_${randString.generate(5)}`;
+    const trunkName = `_${randString.generate(5)}`;
     if (!trunkName || !username || !password || !server) {
         return res.status(200).json({ error: "Missing parameters. Required: username, password, server" });
     }
@@ -85,7 +85,7 @@ app.post('/add-trunk', (req, res) => {
             if (index >= commands.length) {
                 return res.json({ 
                     message: `Trunk ${trunkName} agregado y recargado correctamente.`,
-                    trunk: `${type}_${trunkName}`,
+                    trunk: `${type}${trunkName}`,
                     detected_provider: type,
                     server: server
                 });
