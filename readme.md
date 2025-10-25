@@ -1,8 +1,8 @@
-# Trunk Manager - Módulo para FreePBX
+# Trunk Manager API - Servicio para Asterisk/FreePBX
 
 ## Descripción
 
-Trunk Manager es un módulo para FreePBX que permite la gestión automática de trunks SIP mediante una API REST. Este módulo facilita la creación, configuración y eliminación de trunks sin necesidad de manipular archivos de configuración manualmente.
+Trunk Manager API es un servicio Node.js que permite la gestión automática de trunks SIP mediante una API REST. Este servicio facilita la creación, configuración y eliminación de trunks sin necesidad de manipular archivos de configuración manualmente.
 
 ## Características
 
@@ -13,35 +13,34 @@ Trunk Manager es un módulo para FreePBX que permite la gestión automática de 
 - ✅ Configuración automática de archivos PJSIP
 - ✅ Recarga automática de módulos Asterisk
 - ✅ Gestión de logs y monitoreo
-- ✅ Backup y restauración de configuraciones
+- ✅ **Sin dependencia de FreePBX** - Funciona independientemente
 
 ## Requisitos del Sistema
 
-- FreePBX 13.0.0 o superior
 - Node.js 12.x o superior
 - npm (Node Package Manager)
 - Asterisk con módulos PJSIP habilitados
 - Permisos de escritura en `/etc/asterisk/trunks/`
-- Permisos de administrador en FreePBX
+- Sistema operativo Linux (CentOS 7/Sangoma 7 recomendado)
 
 ## 🚀 Instalación
 
-### Para Sangoma 7 / CentOS 7 (Recomendado)
+### Instalación Solo API (Recomendado)
 
 ```bash
-# Instalación completa en 3 comandos
-wget https://raw.githubusercontent.com/UnCarnaval/addtrunkapi-module/main/install-sangoma7.sh
-chmod +x install-sangoma7.sh
-sudo ./install-sangoma7.sh
+# Instalación simple - Solo API sin módulo FreePBX
+wget https://raw.githubusercontent.com/UnCarnaval/addtrunkapi-module/main/install-api-only.sh
+chmod +x install-api-only.sh
+sudo ./install-api-only.sh
 ```
 
-### Instalación desde Cero (Limpieza + Instalación)
+### Limpiar Módulo FreePBX (Si ya está instalado)
 
 ```bash
-# Si tienes problemas o instalación anterior
-wget https://raw.githubusercontent.com/UnCarnaval/addtrunkapi-module/main/install-complete.sh
-chmod +x install-complete.sh
-sudo ./install-complete.sh
+# Si ya tienes el módulo de FreePBX instalado y quieres solo la API
+wget https://raw.githubusercontent.com/UnCarnaval/addtrunkapi-module/main/cleanup-freepbx-module.sh
+chmod +x cleanup-freepbx-module.sh
+sudo ./cleanup-freepbx-module.sh
 ```
 
 ### Instalación Manual
@@ -141,8 +140,8 @@ El módulo expone una API REST en el puerto configurado (por defecto 56201):
 #### Agregar Trunk
 ```bash
 curl -X POST http://localhost:56201/add-trunk \
-  -H "Content-Type: application/json" \
-  -d '{
+-H "Content-Type: application/json" \
+-d '{
     "username": "miusuario",
     "password": "micontraseña",
     "server": "sip.telnyx.com"
