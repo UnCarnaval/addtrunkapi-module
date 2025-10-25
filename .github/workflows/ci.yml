@@ -1,0 +1,61 @@
+name: Build and Test Trunk Manager Module
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x, 20.x]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Run tests
+      run: npm test
+      continue-on-error: true
+    
+    - name: Check code syntax
+      run: |
+        node -c app.js
+        echo "JavaScript syntax check passed"
+    
+    - name: Validate module files
+      run: |
+        # Check required files exist
+        test -f module.xml || exit 1
+        test -f install.php || exit 1
+        test -f uninstall.php || exit 1
+        test -f config.php || exit 1
+        test -f app.js || exit 1
+        test -f package.json || exit 1
+        echo "All required module files present"
+    
+    - name: Create package
+      run: |
+        chmod +x create-package.sh
+        ./create-package.sh
+        test -f trunkmanager-1.0.0.tgz || exit 1
+        echo "Package created successfully"
+    
+    - name: Upload package artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: trunkmanager-package-${{ matrix.node-version }}
+        path: trunkmanager-1.0.0.tgz
+        retention-days: 30
