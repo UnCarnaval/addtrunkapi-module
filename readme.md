@@ -24,29 +24,49 @@ Trunk Manager es un módulo para FreePBX que permite la gestión automática de 
 - Permisos de escritura en `/etc/asterisk/trunks/`
 - Permisos de administrador en FreePBX
 
-## Instalación
+## 🚀 Instalación
 
-### Método 1: Instalación Manual
+### Para Sangoma 7 / CentOS 7 (Recomendado)
 
-1. **Descargar el módulo:**
-   ```bash
-   cd /var/www/html/admin/modules/
-   git clone https://github.com/tu-usuario/trunkmanager.git
-   # O copiar los archivos manualmente
-   ```
+```bash
+# Instalación completa en 3 comandos
+wget https://raw.githubusercontent.com/UnCarnaval/addtrunkapi-module/main/install-sangoma7.sh
+chmod +x install-sangoma7.sh
+sudo ./install-sangoma7.sh
+```
 
-2. **Configurar permisos:**
-   ```bash
-   chown -R asterisk:asterisk trunkmanager/
-   chmod -R 755 trunkmanager/
-   ```
+### Instalación desde Cero (Limpieza + Instalación)
 
-3. **Instalar desde FreePBX:**
+```bash
+# Si tienes problemas o instalación anterior
+wget https://raw.githubusercontent.com/UnCarnaval/addtrunkapi-module/main/install-complete.sh
+chmod +x install-complete.sh
+sudo ./install-complete.sh
+```
+
+### Instalación Manual
+
+1. **Descargar módulo:**
+```bash
+wget https://github.com/UnCarnaval/addtrunkapi-module/archive/refs/heads/main.zip
+unzip main.zip
+```
+
+2. **Instalar dependencias:**
+```bash
+sudo yum install -y epel-release nodejs npm
+```
+
+3. **Configurar módulo:**
+```bash
+sudo mkdir -p /var/www/html/admin/modules/trunkmanager
+sudo cp -r addtrunkapi-module-main/* /var/www/html/admin/modules/trunkmanager/
+sudo chown -R asterisk:asterisk /var/www/html/admin/modules/trunkmanager
+```
+
+4. **Instalar desde FreePBX:**
    - Acceder a Admin → Module Admin
-   - Buscar "Trunk Manager"
-   - Hacer clic en "Install"
-
-### Método 2: Instalación desde Archivo
+   - Buscar "Trunk Manager" e instalar
 
 1. **Crear paquete del módulo:**
    ```bash

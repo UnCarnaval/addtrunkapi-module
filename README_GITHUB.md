@@ -16,18 +16,23 @@ Módulo profesional para FreePBX que permite la gestión automática de trunks S
 
 ## 🚀 Instalación Rápida
 
-### Opción 1: Paquete .tgz (Recomendado)
-```bash
-# Crear paquete
-./create-package.sh
+### Para Sangoma 7 / CentOS 7 (Recomendado)
 
-# Subir a FreePBX: Admin → Module Admin → Upload Module
+```bash
+# Instalación en 3 comandos
+wget https://raw.githubusercontent.com/UnCarnaval/addtrunkapi-module/main/install-sangoma7.sh
+chmod +x install-sangoma7.sh
+sudo ./install-sangoma7.sh
 ```
 
-### Opción 2: Instalación Remota
+### Instalación Completa (Limpieza + Instalación)
+
 ```bash
-# Instalar via SSH
-./install-remote.sh -s tu-servidor.com -u tu-usuario
+# Si tienes problemas o instalación anterior
+wget https://raw.githubusercontent.com/UnCarnaval/addtrunkapi-module/main/install-complete.sh
+chmod +x install-complete.sh
+sudo ./install-complete.sh
+```
 ```
 
 ### Opción 3: Desde GitHub

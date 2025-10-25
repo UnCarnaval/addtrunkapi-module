@@ -1,132 +1,128 @@
-# 🚀 Instalación Sin Acceso Físico al Servidor
+# 🚀 Guía de Instalación - Trunk Manager Module
 
-## ✅ **SÍ, hay varias formas de instalar sin acceso físico!**
+## ✅ Instalación Rápida (Recomendado)
 
-### **🎯 Método Más Fácil: Paquete .tgz para FreePBX**
+### Para Sangoma 7 / CentOS 7
 
-#### **Paso 1: Crear el paquete**
 ```bash
-# Ejecutar script para crear paquete
-./create-package.sh
+# Instalación completa en 3 comandos
+wget https://raw.githubusercontent.com/UnCarnaval/addtrunkapi-module/main/install-sangoma7.sh
+chmod +x install-sangoma7.sh
+sudo ./install-sangoma7.sh
 ```
 
-#### **Paso 2: Subir a FreePBX**
-1. **Acceder a FreePBX:** `http://tu-servidor/admin`
+### Instalación desde Cero (Limpieza + Instalación)
+
+```bash
+# Si tienes problemas o instalación anterior
+wget https://raw.githubusercontent.com/UnCarnaval/addtrunkapi-module/main/install-complete.sh
+chmod +x install-complete.sh
+sudo ./install-complete.sh
+```
+
+## 📋 Verificación Post-Instalación
+
+### 1. Verificar Servicio
+```bash
+sudo systemctl status trunkmanager-api
+```
+
+### 2. Verificar API
+```bash
+curl http://localhost:56201/health
+```
+
+### 3. Instalar desde FreePBX
+1. **Acceder a:** `http://tu-servidor/admin`
 2. **Ir a:** Admin → Module Admin
-3. **Hacer clic en:** "Upload Module"
-4. **Seleccionar archivo:** `trunkmanager-1.0.0.tgz`
-5. **Hacer clic en:** "Upload" → "Install"
+3. **Buscar:** "Trunk Manager"
+4. **Hacer clic en:** "Install"
+5. **Navegar a:** Connectivity → Trunk Manager
 
-### **🔧 Método Avanzado: Instalación Remota via SSH**
+## 🔧 Comandos Útiles
 
-#### **Si tienes acceso SSH:**
+### Gestión del Servicio
 ```bash
-# Instalar remotamente
-./install-remote.sh -s tu-servidor.com -u tu-usuario
+# Ver estado
+sudo systemctl status trunkmanager-api
 
-# Con puerto personalizado
-./install-remote.sh -s tu-servidor.com -u tu-usuario -p 2222
+# Reiniciar servicio
+sudo systemctl restart trunkmanager-api
 
-# Con clave SSH
-./install-remote.sh -s tu-servidor.com -u tu-usuario -k ~/.ssh/id_rsa
+# Ver logs
+sudo journalctl -u trunkmanager-api -f
+
+# Habilitar inicio automático
+sudo systemctl enable trunkmanager-api
 ```
 
-### **📁 Método Manual: Subir Archivos**
-
-#### **Via FTP/SFTP:**
-1. **Conectar** con FileZilla, WinSCP, etc.
-2. **Navegar a:** `/var/www/html/admin/modules/`
-3. **Subir carpeta:** `trunkmanager/`
-4. **Ejecutar instalación** via SSH o terminal web
-
-#### **Via Panel de Control (cPanel/Plesk):**
-1. **File Manager** → `/public_html/admin/modules/`
-2. **Upload** archivos del módulo
-3. **Terminal** → Ejecutar script de instalación
-
-### **🌐 Método Web: Subir a Servidor Web**
-
-#### **Opción 1: GitHub/GitLab**
-1. **Subir** archivos a repositorio
-2. **Crear release** con archivo .tgz
-3. **Instalar desde URL** en FreePBX
-
-#### **Opción 2: Servidor Web Propio**
-1. **Subir** `trunkmanager-1.0.0.tgz` a tu servidor web
-2. **Instalar desde URL:** `http://tu-servidor.com/trunkmanager-1.0.0.tgz`
-
-## 📋 **Requisitos por Método**
-
-| Método | Requisitos | Dificultad |
-|--------|------------|------------|
-| **Paquete .tgz** | Solo acceso web a FreePBX | ⭐ Fácil |
-| **SSH Remoto** | Acceso SSH + permisos sudo | ⭐⭐ Medio |
-| **FTP/SFTP** | Acceso FTP + SSH para instalación | ⭐⭐ Medio |
-| **Panel Control** | cPanel/Plesk + Terminal | ⭐⭐⭐ Avanzado |
-| **Servidor Web** | Servidor web + URL pública | ⭐⭐ Medio |
-
-## 🎯 **Recomendación**
-
-### **Para la mayoría de usuarios:**
-**Usa el método del paquete .tgz** - Es el más simple y no requiere acceso SSH.
-
-### **Para usuarios avanzados:**
-**Usa la instalación remota via SSH** - Es más rápida y automatizada.
-
-## 🚀 **Instrucciones Rápidas**
-
-### **Método 1: Paquete .tgz (Recomendado)**
+### Pruebas de la API
 ```bash
-# 1. Crear paquete
-./create-package.sh
+# Verificar salud de la API
+curl http://localhost:56201/health
 
-# 2. Subir a FreePBX
-# Admin → Module Admin → Upload Module → Seleccionar trunkmanager-1.0.0.tgz → Upload → Install
+# Probar detección de proveedor
+curl http://localhost:56201/detect-provider/sip.telnyx.com
+
+# Agregar trunk de prueba
+curl -X POST http://localhost:56201/add-trunk \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "test_user",
+    "password": "test_pass",
+    "server": "sip.telnyx.com"
+  }'
 ```
 
-### **Método 2: SSH Remoto**
+## 🆘 Solución de Problemas
+
+### Servicio no inicia
 ```bash
-# Instalar directamente
-./install-remote.sh -s tu-servidor.com -u tu-usuario
+# Ver logs detallados
+sudo journalctl -u trunkmanager-api -n 50
+
+# Verificar configuración
+sudo systemctl cat trunkmanager-api
 ```
 
-### **Método 3: Manual**
+### API no responde
 ```bash
-# 1. Subir archivos via FTP/SFTP a /var/www/html/admin/modules/trunkmanager/
-# 2. Ejecutar instalación via SSH
-ssh tu-usuario@tu-servidor.com "cd /var/www/html/admin/modules/trunkmanager && sudo ./install.sh"
+# Verificar puerto
+sudo netstat -tlnp | grep 56201
+
+# Verificar proceso
+ps aux | grep node
 ```
 
-## ✅ **Verificación Post-Instalación**
-
-Después de cualquier método:
-
+### Problemas de permisos
 ```bash
-# Verificar servicio
-curl http://tu-servidor.com:56201/health
-
-# Verificar en FreePBX
-# Connectivity → Trunk Manager
+# Configurar permisos correctos
+sudo chown -R asterisk:asterisk /var/www/html/admin/modules/trunkmanager
+sudo chmod -R 755 /var/www/html/admin/modules/trunkmanager
 ```
 
-## 🆘 **Si Algo Sale Mal**
+## 📊 Información del Sistema
 
-### **Problemas Comunes:**
-- **Permisos:** `sudo chown -R asterisk:asterisk /var/www/html/admin/modules/trunkmanager/`
-- **Servicio no inicia:** `sudo systemctl restart trunkmanager-api`
-- **API no responde:** Verificar puerto 56201 y firewall
+### Archivos del Módulo
+- **Directorio:** `/var/www/html/admin/modules/trunkmanager`
+- **API Node.js:** `/var/www/html/admin/modules/trunkmanager/nodejs/app.js`
+- **Servicio:** `/etc/systemd/system/trunkmanager-api.service`
+- **Logs:** `journalctl -u trunkmanager-api`
 
-### **Logs para Debug:**
-```bash
-# Via SSH
-ssh tu-usuario@tu-servidor.com "journalctl -u trunkmanager-api -f"
+### Puertos
+- **API REST:** 56201
+- **FreePBX:** 80/443 (puerto web)
 
-# Via web
-curl http://tu-servidor.com:56201/health
-```
+### Usuarios
+- **Servicio:** root (para evitar problemas de permisos)
+- **Archivos:** asterisk:asterisk
 
-## 🎉 **¡Listo!**
+## 🎯 Próximos Pasos
 
-Con cualquiera de estos métodos puedes instalar el módulo **sin acceso físico al servidor**. El método del paquete .tgz es el más simple y funciona en la mayoría de casos.
+1. ✅ **Instalar módulo** usando los comandos de arriba
+2. ✅ **Verificar servicio** con `systemctl status`
+3. ✅ **Probar API** con `curl http://localhost:56201/health`
+4. ✅ **Instalar desde FreePBX** en Module Admin
+5. ✅ **Configurar trunks** en Connectivity → Trunk Manager
 
-¿Cuál método prefieres usar?
+¡Listo! El módulo estará funcionando correctamente. 🎉
