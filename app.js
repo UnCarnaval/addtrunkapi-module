@@ -115,6 +115,49 @@ app.get('/detect-provider/:server', (req, res) => {
     });
 });
 
+// Endpoint para listar todos los trunks creados
+app.get('/list-trunks', (req, res) => {
+    try {
+        // Leer todos los archivos .conf en el directorio de trunks
+        const files = fs.readdirSync(PJSIP_DIR);
+        const trunkFiles = files.filter(file => file.endsWith('.conf'));
+        
+        const trunks = trunkFiles.map(file => {
+            const fileName = file.replace('.conf', '');
+            const filePath = `${PJSIP_DIR}${file}`;
+            
+            // Leer el contenido del archivo para extraer información
+            const content = fs.readFileSync(filePath, 'utf-8');
+            
+            // Extraer información del trunk
+            const serverMatch = content.match(/server_uri=sip:.*?@(.*?)[\s\n]/);
+            const usernameMatch = content.match(/username=(.*?)[\s\n]/);
+            const endpointMatch = content.match(/\[(.*?)\]/);
+            
+            return {
+                filename: fileName,
+                full_name: fileName,
+                server: serverMatch ? serverMatch[1] : 'unknown',
+                username: usernameMatch ? usernameMatch[1] : 'unknown',
+                endpoint: endpointMatch ? endpointMatch[1] : 'unknown',
+                file_path: filePath,
+                created: fs.statSync(filePath).birthtime
+            };
+        });
+        
+        res.json({
+            total_trunks: trunks.length,
+            trunks: trunks
+        });
+        
+    } catch (error) {
+        res.status(500).json({ 
+            error: "Error al leer los trunks",
+            message: error.message 
+        });
+    }
+});
+
 // Endpoint de salud para verificación
 app.get('/health', (req, res) => {
     res.json({ 
