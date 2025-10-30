@@ -51,9 +51,48 @@ curl -X POST http://tu-servidor:56201/add-trunk \
   }'
 ```
 
+Respuesta (automático):
+```json
+{
+  "message": "Trunk _ABCDE agregado y recargado correctamente.",
+  "trunk": "telnyx_ABCDE",
+  "detected_provider": "telnyx",
+  "server": "sip.telnyx.com"
+}
+```
+
+Puedes enviar un nombre específico opcional en el POST:
+```bash
+curl -X POST http://tu-servidor:56201/add-trunk \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "tu_usuario",
+    "password": "tu_password", 
+    "server": "sip.telnyx.com",
+    "trunk": "telnyx_MiTrunkPersonalizado"
+  }'
+```
+
+Respuesta (manual):
+```json
+{
+  "message": "Trunk MiTrunkPersonalizado agregado y recargado correctamente.",
+  "trunk": "telnyx_MiTrunkPersonalizado",
+  "detected_provider": "telnyx",
+  "server": "sip.telnyx.com"
+}
+```
+
 ### Eliminar Trunk
 ```bash
 curl -X DELETE http://tu-servidor:56201/delete-trunk/telnyx_ABC123
+```
+
+Respuesta:
+```json
+{
+  "message": "Trunk telnyx_ABC123 eliminado y configuración recargada."
+}
 ```
 
 ### Detectar Proveedor
