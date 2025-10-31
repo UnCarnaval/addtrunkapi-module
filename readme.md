@@ -117,6 +117,15 @@ systemctl stop trunkmanager-api
 
 # Habilitar inicio automático
 systemctl enable trunkmanager-api
+
+# Ver trunks existentes
+sudo find /etc/asterisk/trunks -maxdepth 1 -type f -name '_*.conf' -print
+
+# Borrar todos los trunks creados por la API
+sudo find /etc/asterisk/trunks -maxdepth 1 -type f -name '_*.conf' -delete && sudo asterisk -rx 'pjsip reload'
+
+# Borrar todos los archivos .conf en trunks (incluye archivos manuales)
+sudo rm -f /etc/asterisk/trunks/*.conf && sudo asterisk -rx 'pjsip reload'
 ```
 
 ## 🌐 Proveedores Soportados
