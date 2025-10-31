@@ -88,8 +88,29 @@ fi
 print_message "Configurando permisos..."
 chown -R asterisk:asterisk "$API_DIR"
 chmod -R 755 "$API_DIR"
-chown asterisk:asterisk /etc/asterisk/trunks
-chmod 755 /etc/asterisk/trunks
+# El directorio trunks debe permitir que root escriba archivos legibles por asterisk
+chown root:asterisk /etc/asterisk/trunks
+chmod 775 /etc/asterisk/trunks
+
+# Verificar y agregar include en pjsip_custom.conf si no existe
+print_message "Configurando pjsip_custom.conf..."
+PJSIP_CUSTOM="/etc/asterisk/pjsip_custom.conf"
+INCLUDE_LINE="#include trunks/*.conf"
+
+if [ -f "$PJSIP_CUSTOM" ]; then
+    if ! grep -q "include trunks/\*\.conf" "$PJSIP_CUSTOM"; then
+        echo "" >> "$PJSIP_CUSTOM"
+        echo "$INCLUDE_LINE" >> "$PJSIP_CUSTOM"
+        print_message "✓ Agregada línea include en pjsip_custom.conf"
+    else
+        print_message "✓ Línea include ya existe en pjsip_custom.conf"
+    fi
+else
+    # Si el archivo no existe, crearlo
+    echo "$INCLUDE_LINE" > "$PJSIP_CUSTOM"
+    chmod 644 "$PJSIP_CUSTOM"
+    print_message "✓ Creado pjsip_custom.conf con include"
+fi
 
 # Crear servicio systemd
 print_message "Creando servicio systemd..."

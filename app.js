@@ -92,6 +92,14 @@ app.post('/add-trunk', (req, res) => {
             return res.status(200).json({ error: "Error al escribir el archivo." });
         }
 
+        // Establecer permisos correctos: legible por asterisk, modificable por root
+        fs.chmodSync(filePath, 0o644);
+        // Cambiar propietario a root:asterisk para que asterisk pueda leerlo
+        exec(`chown root:asterisk "${filePath}"`, (chownErr) => {
+            if (chownErr) {
+                console.log("Advertencia: No se pudo cambiar propietario del archivo:", chownErr);
+            }
+        });
 
         const commands = [
             "asterisk -rx 'module reload res_pjsip.so'",
