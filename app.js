@@ -84,7 +84,10 @@ app.post('/add-trunk', (req, res) => {
     }
 
     const trunkSample = getConfig(trunkConfig);
-    const trunkComplete = changeVars(trunkSample, {name:trunkName, username, password, server});
+    // Para el template, usar el nombre sin el guión bajo inicial (si existe)
+    // El archivo usa trunkName con guión bajo, pero el template necesita el nombre limpio
+    const templateName = trunkName.startsWith('_') ? trunkName.substring(1) : trunkName;
+    const trunkComplete = changeVars(trunkSample, {name: templateName, username, password, server});
 
     fs.writeFile(filePath, trunkComplete, (err) => {
         if (err) {
