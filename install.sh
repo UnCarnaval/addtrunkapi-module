@@ -112,6 +112,37 @@ else
     print_message "✓ Creado pjsip_custom.conf con include"
 fi
 
+# Configurar límites de systemd para Asterisk
+print_message "Configurando límites de systemd para Asterisk..."
+ASTERISK_LIMITS_DIR="/etc/systemd/system/asterisk.service.d"
+ASTERISK_LIMITS_FILE="$ASTERISK_LIMITS_DIR/limits.conf"
+
+mkdir -p "$ASTERISK_LIMITS_DIR"
+
+cat > "$ASTERISK_LIMITS_FILE" << 'LIMITS_EOF'
+[Service]
+LimitNOFILE=65535
+LimitNPROC=65535
+LIMITS_EOF
+
+chmod 644 "$ASTERISK_LIMITS_FILE"
+print_message "✓ Configurados límites de systemd para Asterisk (LimitNOFILE=65535, LimitNPROC=65535)"
+
+# Recargar systemd y reiniciar Asterisk si está instalado
+if systemctl list-units --type=service --all | grep -q "asterisk.service"; then
+    print_message "Recargando systemd y reiniciando Asterisk..."
+    systemctl daemon-reexec
+    systemctl daemon-reload
+    if systemctl is-active --quiet asterisk; then
+        systemctl restart asterisk
+        print_message "✓ Asterisk reiniciado con nuevos límites"
+    else
+        print_message "⚠ Asterisk no está activo, límites se aplicarán al iniciar"
+    fi
+else
+    print_message "⚠ Servicio de Asterisk no encontrado, límites se aplicarán cuando se instale"
+fi
+
 # Crear servicio systemd
 print_message "Creando servicio systemd..."
 cat > /etc/systemd/system/trunkmanager-api.service << 'EOF'
