@@ -100,6 +100,107 @@ Respuesta:
 curl http://tu-servidor:56201/detect-provider/sip.telnyx.com
 ```
 
+### Ver Llamadas Activas (Todas)
+```bash
+curl http://tu-servidor:56201/active-calls
+```
+
+Respuesta:
+```json
+{
+  "total_calls": 3,
+  "timestamp": "2025-10-31T18:00:00.000Z",
+  "calls": [
+    {
+      "channel": "PJSIP/telnyx_ABC-00000001;1",
+      "trunk": "telnyx_ABC",
+      "context": "from-pstn",
+      "extension": "",
+      "state": "Up",
+      "application": "Dial"
+    },
+    {
+      "channel": "PJSIP/twilio_XYZ-00000002;1",
+      "trunk": "twilio_XYZ",
+      "context": "from-pstn",
+      "extension": "",
+      "state": "Up",
+      "application": "Dial"
+    }
+  ],
+  "calls_by_trunk": {
+    "telnyx_ABC": [
+      {
+        "channel": "PJSIP/telnyx_ABC-00000001;1",
+        "trunk": "telnyx_ABC",
+        "context": "from-pstn",
+        "extension": "",
+        "state": "Up",
+        "application": "Dial"
+      }
+    ],
+    "twilio_XYZ": [
+      {
+        "channel": "PJSIP/twilio_XYZ-00000002;1",
+        "trunk": "twilio_XYZ",
+        "context": "from-pstn",
+        "extension": "",
+        "state": "Up",
+        "application": "Dial"
+      }
+    ]
+  },
+  "summary": [
+    {
+      "trunk": "telnyx_ABC",
+      "count": 1
+    },
+    {
+      "trunk": "twilio_XYZ",
+      "count": 1
+    }
+  ]
+}
+```
+
+### Ver Llamadas Activas por Trunk
+```bash
+curl http://tu-servidor:56201/active-calls/telnyx_ABC
+```
+
+O también puedes usar solo el nombre del trunk:
+```bash
+curl http://tu-servidor:56201/active-calls/ABC
+```
+
+Respuesta:
+```json
+{
+  "trunk": "telnyx_ABC",
+  "full_trunk_name": "telnyx_ABC",
+  "total_calls": 2,
+  "timestamp": "2025-10-31T18:00:00.000Z",
+  "calls": [
+    {
+      "channel": "PJSIP/telnyx_ABC-00000001;1",
+      "trunk": "telnyx_ABC",
+      "context": "from-pstn",
+      "extension": "",
+      "state": "Up",
+      "application": "Dial"
+    },
+    {
+      "channel": "PJSIP/telnyx_ABC-00000002;1",
+      "trunk": "telnyx_ABC",
+      "context": "from-pstn",
+      "extension": "",
+      "state": "Up",
+      "application": "Dial"
+    }
+  ]
+}
+```
+
 ## 🔧 Comandos Útiles
 
 ```bash

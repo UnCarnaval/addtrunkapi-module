@@ -145,6 +145,204 @@ app.get('/detect-provider/:server', (req, res) => {
     });
 });
 
+// Función para obtener información detallada de un canal
+const getChannelInfo = (channelName, callback) => {
+    exec(`asterisk -rx 'core show channel ${channelName}'`, (error, stdout, stderr) => {
+        if (error) {
+            return callback(null);
+        }
+        
+        const info = {};
+        const lines = stdout.split('\n');
+        
+        lines.forEach(line => {
+            if (line.includes('Duration:')) {
+                const durationMatch = line.match(/Duration:\s*(\d+):(\d+):(\d+)/);
+                if (durationMatch) {
+                    info.duration = {
+                        hours: parseInt(durationMatch[1]),
+                        minutes: parseInt(durationMatch[2]),
+                        seconds: parseInt(durationMatch[3]),
+                        formatted: durationMatch[0].replace('Duration:', '').trim()
+                    };
+                }
+            }
+            if (line.includes('CallerID:')) {
+                const callerMatch = line.match(/CallerID:\s*<?([^>]+)>?/);
+                if (callerMatch) {
+                    info.callerId = callerMatch[1].trim();
+                }
+            }
+            if (line.includes('Connected line:')) {
+                const connectedMatch = line.match(/Connected line:\s*<?([^>]+)>?/);
+                if (connectedMatch) {
+                    info.connectedTo = connectedMatch[1].trim();
+                }
+            }
+        });
+        
+        callback(info);
+    });
+};
+
+// Función para obtener todas las llamadas activas
+const getActiveCalls = (callback) => {
+    exec("asterisk -rx 'core show channels'", (error, stdout, stderr) => {
+        if (error) {
+            return callback({ error: "Error al obtener llamadas activas", details: error.message }, null);
+        }
+        
+        const lines = stdout.split('\n');
+        const calls = [];
+        let inChannelsSection = false;
+        
+        // Parsear la salida
+        lines.forEach(line => {
+            // Detectar inicio de la sección de canales
+            if (line.includes('Channel') && line.includes('Context')) {
+                inChannelsSection = true;
+                return;
+            }
+            
+            // Detectar fin de la sección (línea con "active channels" o "active calls")
+            if (line.includes('active channels') || line.includes('active calls')) {
+                inChannelsSection = false;
+                return;
+            }
+            
+            // Si estamos en la sección de canales y hay contenido
+            if (inChannelsSection && line.trim() && !line.includes('---')) {
+                // Parsear línea de canal (formato: Channel              Context              Extension   Priority  State      Application         Data)
+                const parts = line.trim().split(/\s+/);
+                if (parts.length >= 3) {
+                    const channel = parts[0];
+                    
+                    // Extraer el nombre del trunk/endpoint del canal
+                    // Ejemplo: PJSIP/telnyx_ABC-00000001;1 -> telnyx_ABC
+                    let trunkName = null;
+                    if (channel.includes('PJSIP/')) {
+                        const match = channel.match(/PJSIP\/([^-\s]+)/);
+                        if (match) {
+                            trunkName = match[1];
+                        }
+                    } else if (channel.includes('SIP/')) {
+                        const match = channel.match(/SIP\/([^-\s]+)/);
+                        if (match) {
+                            trunkName = match[1];
+                        }
+                    }
+                    
+                    const context = parts[1] || '';
+                    const extension = parts[2] || '';
+                    const state = parts[4] || '';
+                    const application = parts[5] || '';
+                    
+                    calls.push({
+                        channel: channel,
+                        trunk: trunkName,
+                        context: context,
+                        extension: extension,
+                        state: state,
+                        application: application
+                    });
+                }
+            }
+        });
+        
+        callback(null, calls);
+    });
+};
+
+// Endpoint para obtener todas las llamadas activas
+app.get('/active-calls', (req, res) => {
+    getActiveCalls((error, calls) => {
+        if (error) {
+            return res.status(500).json(error);
+        }
+        
+        // Agrupar por trunk
+        const callsByTrunk = {};
+        const totalCalls = calls.length;
+        
+        calls.forEach(call => {
+            const trunkKey = call.trunk || 'unknown';
+            if (!callsByTrunk[trunkKey]) {
+                callsByTrunk[trunkKey] = [];
+            }
+            callsByTrunk[trunkKey].push(call);
+        });
+        
+        res.json({
+            total_calls: totalCalls,
+            timestamp: new Date().toISOString(),
+            calls: calls,
+            calls_by_trunk: callsByTrunk,
+            summary: Object.keys(callsByTrunk).map(trunk => ({
+                trunk: trunk,
+                count: callsByTrunk[trunk].length
+            }))
+        });
+    });
+});
+
+// Endpoint para obtener llamadas activas de un trunk específico
+app.get('/active-calls/:trunkName', (req, res) => {
+    const { trunkName } = req.params;
+    
+    getActiveCalls((error, calls) => {
+        if (error) {
+            return res.status(500).json(error);
+        }
+        
+        // Filtrar llamadas por trunk
+        // El trunkName puede venir como "telnyx_ABC" o solo "ABC"
+        let fileName;
+        let fullTrunkName;
+        
+        if (trunkName.includes('_')) {
+            fullTrunkName = trunkName;
+            fileName = trunkName.split('_').slice(1).join('_');
+        } else {
+            // Si no tiene _, buscar el tipo de proveedor
+            // Por ahora, buscar en todos los archivos de trunks
+            const files = fs.readdirSync(PJSIP_DIR);
+            const matchingFile = files.find(f => f.includes(trunkName));
+            if (matchingFile) {
+                fileName = trunkName;
+                // Intentar detectar el tipo desde el contenido del archivo
+                const fileContent = fs.readFileSync(PJSIP_DIR + matchingFile, 'utf8');
+                const typeMatch = fileContent.match(/\[(\w+)_/);
+                if (typeMatch) {
+                    fullTrunkName = `${typeMatch[1]}_${trunkName}`;
+                } else {
+                    fullTrunkName = trunkName;
+                }
+            } else {
+                fullTrunkName = trunkName;
+                fileName = trunkName;
+            }
+        }
+        
+        // Filtrar llamadas que coincidan con el trunk
+        const trunkCalls = calls.filter(call => {
+            if (!call.trunk) return false;
+            // Comparar con el nombre completo o solo la parte después del _
+            return call.trunk === fullTrunkName || 
+                   call.trunk === trunkName ||
+                   call.trunk.endsWith(`_${fileName}`) ||
+                   call.trunk === fileName;
+        });
+        
+        res.json({
+            trunk: trunkName,
+            full_trunk_name: fullTrunkName,
+            total_calls: trunkCalls.length,
+            timestamp: new Date().toISOString(),
+            calls: trunkCalls
+        });
+    });
+});
+
 // Endpoint de salud para verificación
 app.get('/health', (req, res) => {
     res.json({ 
