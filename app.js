@@ -241,10 +241,17 @@ const getActiveCalls = (callback) => {
                     // "PJSIP/telnyx_5Muyo-0 s@from-pstn:1        Up      Stasis(DrMott,f8459f0b-4b02-47"
                     // o "Channel              Location             State   Application(Data)"
                     
-                    // Extraer el canal (primer campo, hasta el primer espacio significativo)
+                    // Extraer el canal (primer campo, hasta el primer espacio)
+                    // El canal puede ser algo como: PJSIP/telnyx_5Muyo-0
                     const channelMatch = trimmedLine.match(/^([^\s]+)/);
                     if (channelMatch) {
                         const channel = channelMatch[1];
+                        
+                        // Debug: log si no hay muchas llamadas
+                        if (calls.length < 5) {
+                            console.log(`Parsing line: "${trimmedLine}"`);
+                            console.log(`Channel found: "${channel}"`);
+                        }
                         
                         // Extraer el nombre del trunk/endpoint del canal
                         // Ejemplo: PJSIP/telnyx_5Muyo-0 -> telnyx_5Muyo
@@ -264,12 +271,28 @@ const getActiveCalls = (callback) => {
                         // Remover el canal del inicio para parsear el resto
                         let restOfLine = trimmedLine.substring(channel.length).trim();
                         
-                        // Parsear Location (formato: "from-pstn:1" o similar)
-                        // La Location puede tener espacios, así que necesitamos ser cuidadosos
-                        // Usar regex para extraer Location, State y Application
-                        // Formato: "Location             State   Application(Data)"
-                        const locationMatch = restOfLine.match(/^([^\s]+(?:\s+[^\s]+)*?)\s{2,}(\w+)\s{2,}(.+)/);
+                        // Debug
+                        if (calls.length < 5) {
+                            console.log(`Rest of line: "${restOfLine}"`);
+                        }
                         
+                        // Parsear Location, State y Application
+                        // Formato real: "s@from-pstn:1        Up      Stasis(DrMott,f8459f0b-4b02-47"
+                        // Usar regex que detecte múltiples espacios o espacios únicos
+                        // Primero intentar con múltiples espacios (formato más común)
+                        let locationMatch = restOfLine.match(/^(.+?)\s{2,}(\w+)\s{2,}(.+)$/);
+                        
+                        // Si no funciona, intentar con un solo espacio entre campos
+                        if (!locationMatch) {
+                            locationMatch = restOfLine.match(/^(.+?)\s+(\w+)\s+(.+)$/);
+                        }
+                        
+                        // Debug
+                        if (calls.length < 5 && !locationMatch) {
+                            console.log(`No locationMatch found for: "${restOfLine}"`);
+                        }
+                        
+                        // Si aún no funciona, usar split simple
                         let location = '';
                         let state = '';
                         let application = '';
@@ -280,8 +303,9 @@ const getActiveCalls = (callback) => {
                             state = locationMatch[2].trim();
                             const appData = locationMatch[3].trim();
                             
-                            // Separar Application y Data
-                            const appMatch = appData.match(/^(\w+(?:\([^)]*\))?)\s*(.*)$/);
+                            // Separar Application y Data (puede tener paréntesis y más datos)
+                            // Ejemplo: "Stasis(DrMott,f8459f0b-4b02-47" o "AppDial2((Outgoing Line))"
+                            const appMatch = appData.match(/^(\w+(?:\([^)]*\))*)\s*(.*)$/);
                             if (appMatch) {
                                 application = appMatch[1];
                                 data = appMatch[2] || '';
@@ -289,11 +313,15 @@ const getActiveCalls = (callback) => {
                                 application = appData;
                             }
                         } else {
-                            // Formato alternativo: intentar parsear con espacios simples
+                            // Parseo de fallback: split por espacios
                             const parts = restOfLine.split(/\s+/);
-                            if (parts.length >= 2) {
+                            if (parts.length >= 1) {
                                 location = parts[0] || '';
+                            }
+                            if (parts.length >= 2) {
                                 state = parts[1] || '';
+                            }
+                            if (parts.length >= 3) {
                                 application = parts[2] || '';
                                 data = parts.slice(3).join(' ') || '';
                             }
