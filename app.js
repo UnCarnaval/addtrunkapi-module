@@ -247,12 +247,6 @@ const getActiveCalls = (callback) => {
                     if (channelMatch) {
                         const channel = channelMatch[1];
                         
-                        // Debug: log si no hay muchas llamadas
-                        if (calls.length < 5) {
-                            console.log(`Parsing line: "${trimmedLine}"`);
-                            console.log(`Channel found: "${channel}"`);
-                        }
-                        
                         // Extraer el nombre del trunk/endpoint del canal
                         // Ejemplo: PJSIP/telnyx_5Muyo-0 -> telnyx_5Muyo
                         let trunkName = null;
@@ -271,11 +265,6 @@ const getActiveCalls = (callback) => {
                         // Remover el canal del inicio para parsear el resto
                         let restOfLine = trimmedLine.substring(channel.length).trim();
                         
-                        // Debug
-                        if (calls.length < 5) {
-                            console.log(`Rest of line: "${restOfLine}"`);
-                        }
-                        
                         // Parsear Location, State y Application
                         // Formato real: "s@from-pstn:1        Up      Stasis(DrMott,f8459f0b-4b02-47"
                         // Usar regex que detecte múltiples espacios o espacios únicos
@@ -285,11 +274,6 @@ const getActiveCalls = (callback) => {
                         // Si no funciona, intentar con un solo espacio entre campos
                         if (!locationMatch) {
                             locationMatch = restOfLine.match(/^(.+?)\s+(\w+)\s+(.+)$/);
-                        }
-                        
-                        // Debug
-                        if (calls.length < 5 && !locationMatch) {
-                            console.log(`No locationMatch found for: "${restOfLine}"`);
                         }
                         
                         // Si aún no funciona, usar split simple
@@ -305,10 +289,31 @@ const getActiveCalls = (callback) => {
                             
                             // Separar Application y Data (puede tener paréntesis y más datos)
                             // Ejemplo: "Stasis(DrMott,f8459f0b-4b02-47" o "AppDial2((Outgoing Line))"
-                            const appMatch = appData.match(/^(\w+(?:\([^)]*\))*)\s*(.*)$/);
-                            if (appMatch) {
-                                application = appMatch[1];
-                                data = appMatch[2] || '';
+                            // Necesitamos manejar paréntesis anidados correctamente
+                            // Buscar el nombre de la aplicación (letras seguidas)
+                            const appNameMatch = appData.match(/^(\w+)/);
+                            if (appNameMatch) {
+                                const appName = appNameMatch[1];
+                                let appEndIndex = appName.length;
+                                
+                                // Contar paréntesis para encontrar el final de la aplicación
+                                let parenCount = 0;
+                                let inParens = false;
+                                for (let i = appName.length; i < appData.length; i++) {
+                                    if (appData[i] === '(') {
+                                        parenCount++;
+                                        inParens = true;
+                                    } else if (appData[i] === ')') {
+                                        parenCount--;
+                                        if (parenCount === 0 && inParens) {
+                                            appEndIndex = i + 1;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                application = appData.substring(0, appEndIndex).trim();
+                                data = appData.substring(appEndIndex).trim();
                             } else {
                                 application = appData;
                             }
@@ -326,6 +331,10 @@ const getActiveCalls = (callback) => {
                                 data = parts.slice(3).join(' ') || '';
                             }
                         }
+                        
+                        // Limpiar location: remover prefijos como "s@" si existen
+                        // Formato puede ser "s@from-pstn:1" o "from-pstn:1"
+                        location = location.replace(/^[^@]+@/, ''); // Remover "s@" o similar
                         
                         // Separar context y extension de location si es formato "context:extension"
                         let context = '';
