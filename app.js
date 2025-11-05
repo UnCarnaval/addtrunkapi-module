@@ -189,62 +189,91 @@ const getChannelInfo = (channelName, callback) => {
 const getActiveCalls = (callback) => {
     exec("asterisk -rx 'core show channels'", (error, stdout, stderr) => {
         if (error) {
+            console.error('Error ejecutando core show channels:', error);
             return callback({ error: "Error al obtener llamadas activas", details: error.message }, null);
+        }
+        
+        if (stderr) {
+            console.error('Stderr de asterisk:', stderr);
         }
         
         const lines = stdout.split('\n');
         const calls = [];
         let inChannelsSection = false;
+        let headerFound = false;
         
         // Parsear la salida
-        lines.forEach(line => {
-            // Detectar inicio de la sección de canales
-            if (line.includes('Channel') && line.includes('Context')) {
+        lines.forEach((line, index) => {
+            const trimmedLine = line.trim();
+            
+            // Detectar inicio de la sección de canales (buscar el header)
+            if (trimmedLine.includes('Channel') && (trimmedLine.includes('Context') || trimmedLine.includes('Extension'))) {
                 inChannelsSection = true;
+                headerFound = true;
                 return;
             }
             
-            // Detectar fin de la sección (línea con "active channels" o "active calls")
-            if (line.includes('active channels') || line.includes('active calls')) {
+            // Detectar fin de la sección (línea con "active channels" o "active calls" o "channels")
+            if (trimmedLine.toLowerCase().includes('active channel') || 
+                trimmedLine.toLowerCase().includes('active call') ||
+                (trimmedLine.match(/^\d+\s+active\s+channel/i))) {
                 inChannelsSection = false;
                 return;
             }
             
             // Si estamos en la sección de canales y hay contenido
-            if (inChannelsSection && line.trim() && !line.includes('---')) {
-                // Parsear línea de canal (formato: Channel              Context              Extension   Priority  State      Application         Data)
-                const parts = line.trim().split(/\s+/);
-                if (parts.length >= 3) {
-                    const channel = parts[0];
-                    
-                    // Extraer el nombre del trunk/endpoint del canal
-                    // Ejemplo: PJSIP/telnyx_ABC-00000001;1 -> telnyx_ABC
-                    let trunkName = null;
-                    if (channel.includes('PJSIP/')) {
-                        const match = channel.match(/PJSIP\/([^-\s]+)/);
-                        if (match) {
-                            trunkName = match[1];
+            if (inChannelsSection && trimmedLine && 
+                !trimmedLine.includes('---') && 
+                !trimmedLine.includes('Channel') &&
+                trimmedLine.length > 0) {
+                
+                // Intentar detectar si es una línea de canal válida
+                // Los canales suelen empezar con PJSIP/, SIP/, IAX2/, DAHDI/, Local/, etc.
+                if (trimmedLine.match(/^(PJSIP|SIP|IAX2|DAHDI|Local|Chan|H323)\//)) {
+                    // Parsear línea de canal - puede tener espacios variables
+                    // Formato típico: Channel              Context              Extension   Priority  State      Application         Data
+                    const channelMatch = trimmedLine.match(/^([^\s]+)/);
+                    if (channelMatch) {
+                        const channel = channelMatch[1];
+                        
+                        // Extraer el nombre del trunk/endpoint del canal
+                        // Ejemplo: PJSIP/telnyx_ABC-00000001;1 -> telnyx_ABC
+                        let trunkName = null;
+                        if (channel.includes('PJSIP/')) {
+                            const match = channel.match(/PJSIP\/([^-\s;]+)/);
+                            if (match) {
+                                trunkName = match[1];
+                            }
+                        } else if (channel.includes('SIP/')) {
+                            const match = channel.match(/SIP\/([^-\s;]+)/);
+                            if (match) {
+                                trunkName = match[1];
+                            }
                         }
-                    } else if (channel.includes('SIP/')) {
-                        const match = channel.match(/SIP\/([^-\s]+)/);
-                        if (match) {
-                            trunkName = match[1];
-                        }
+                        
+                        // Parsear el resto de la línea
+                        // Remover el canal del inicio y parsear el resto
+                        const restOfLine = trimmedLine.substring(channel.length).trim();
+                        const parts = restOfLine.split(/\s+/);
+                        
+                        const context = parts[0] || '';
+                        const extension = parts[1] || '';
+                        const priority = parts[2] || '';
+                        const state = parts[3] || '';
+                        const application = parts[4] || '';
+                        const data = parts.slice(5).join(' ') || '';
+                        
+                        calls.push({
+                            channel: channel,
+                            trunk: trunkName,
+                            context: context,
+                            extension: extension,
+                            priority: priority,
+                            state: state,
+                            application: application,
+                            data: data
+                        });
                     }
-                    
-                    const context = parts[1] || '';
-                    const extension = parts[2] || '';
-                    const state = parts[4] || '';
-                    const application = parts[5] || '';
-                    
-                    calls.push({
-                        channel: channel,
-                        trunk: trunkName,
-                        context: context,
-                        extension: extension,
-                        state: state,
-                        application: application
-                    });
                 }
             }
         });
@@ -252,6 +281,18 @@ const getActiveCalls = (callback) => {
         callback(null, calls);
     });
 };
+
+// Endpoint de debug para ver la salida cruda de Asterisk
+app.get('/debug/asterisk-channels', (req, res) => {
+    exec("asterisk -rx 'core show channels'", (error, stdout, stderr) => {
+        res.json({
+            error: error ? error.message : null,
+            stderr: stderr || null,
+            stdout: stdout || null,
+            lines: stdout ? stdout.split('\n') : []
+        });
+    });
+});
 
 // Endpoint para obtener todas las llamadas activas
 app.get('/active-calls', (req, res) => {
