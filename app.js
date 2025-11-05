@@ -201,22 +201,28 @@ const getActiveCalls = (callback) => {
         const calls = [];
         let inChannelsSection = false;
         let headerFound = false;
+        let headerIndex = -1;
         
         // Parsear la salida
         lines.forEach((line, index) => {
             const trimmedLine = line.trim();
             
             // Detectar inicio de la sección de canales (buscar el header)
-            if (trimmedLine.includes('Channel') && (trimmedLine.includes('Context') || trimmedLine.includes('Extension'))) {
+            // El header puede ser "Channel              Location             State   Application(Data)" 
+            // o "Channel              Context              Extension   Priority  State      Application         Data"
+            if (trimmedLine.includes('Channel') && 
+                (trimmedLine.includes('Location') || trimmedLine.includes('Context') || trimmedLine.includes('Extension'))) {
                 inChannelsSection = true;
                 headerFound = true;
+                headerIndex = index;
                 return;
             }
             
             // Detectar fin de la sección (línea con "active channels" o "active calls" o "channels")
             if (trimmedLine.toLowerCase().includes('active channel') || 
                 trimmedLine.toLowerCase().includes('active call') ||
-                (trimmedLine.match(/^\d+\s+active\s+channel/i))) {
+                (trimmedLine.match(/^\d+\s+active\s+channel/i)) ||
+                trimmedLine.toLowerCase().includes('calls processed')) {
                 inChannelsSection = false;
                 return;
             }
@@ -225,19 +231,23 @@ const getActiveCalls = (callback) => {
             if (inChannelsSection && trimmedLine && 
                 !trimmedLine.includes('---') && 
                 !trimmedLine.includes('Channel') &&
-                trimmedLine.length > 0) {
+                trimmedLine.length > 0 &&
+                index > headerIndex) {
                 
                 // Intentar detectar si es una línea de canal válida
                 // Los canales suelen empezar con PJSIP/, SIP/, IAX2/, DAHDI/, Local/, etc.
                 if (trimmedLine.match(/^(PJSIP|SIP|IAX2|DAHDI|Local|Chan|H323)\//)) {
-                    // Parsear línea de canal - puede tener espacios variables
-                    // Formato típico: Channel              Context              Extension   Priority  State      Application         Data
+                    // Parsear línea de canal - formato real: 
+                    // "PJSIP/telnyx_5Muyo-0 s@from-pstn:1        Up      Stasis(DrMott,f8459f0b-4b02-47"
+                    // o "Channel              Location             State   Application(Data)"
+                    
+                    // Extraer el canal (primer campo, hasta el primer espacio significativo)
                     const channelMatch = trimmedLine.match(/^([^\s]+)/);
                     if (channelMatch) {
                         const channel = channelMatch[1];
                         
                         // Extraer el nombre del trunk/endpoint del canal
-                        // Ejemplo: PJSIP/telnyx_ABC-00000001;1 -> telnyx_ABC
+                        // Ejemplo: PJSIP/telnyx_5Muyo-0 -> telnyx_5Muyo
                         let trunkName = null;
                         if (channel.includes('PJSIP/')) {
                             const match = channel.match(/PJSIP\/([^-\s;]+)/);
@@ -251,24 +261,61 @@ const getActiveCalls = (callback) => {
                             }
                         }
                         
-                        // Parsear el resto de la línea
-                        // Remover el canal del inicio y parsear el resto
-                        const restOfLine = trimmedLine.substring(channel.length).trim();
-                        const parts = restOfLine.split(/\s+/);
+                        // Remover el canal del inicio para parsear el resto
+                        let restOfLine = trimmedLine.substring(channel.length).trim();
                         
-                        const context = parts[0] || '';
-                        const extension = parts[1] || '';
-                        const priority = parts[2] || '';
-                        const state = parts[3] || '';
-                        const application = parts[4] || '';
-                        const data = parts.slice(5).join(' ') || '';
+                        // Parsear Location (formato: "from-pstn:1" o similar)
+                        // La Location puede tener espacios, así que necesitamos ser cuidadosos
+                        // Usar regex para extraer Location, State y Application
+                        // Formato: "Location             State   Application(Data)"
+                        const locationMatch = restOfLine.match(/^([^\s]+(?:\s+[^\s]+)*?)\s{2,}(\w+)\s{2,}(.+)/);
+                        
+                        let location = '';
+                        let state = '';
+                        let application = '';
+                        let data = '';
+                        
+                        if (locationMatch) {
+                            location = locationMatch[1].trim();
+                            state = locationMatch[2].trim();
+                            const appData = locationMatch[3].trim();
+                            
+                            // Separar Application y Data
+                            const appMatch = appData.match(/^(\w+(?:\([^)]*\))?)\s*(.*)$/);
+                            if (appMatch) {
+                                application = appMatch[1];
+                                data = appMatch[2] || '';
+                            } else {
+                                application = appData;
+                            }
+                        } else {
+                            // Formato alternativo: intentar parsear con espacios simples
+                            const parts = restOfLine.split(/\s+/);
+                            if (parts.length >= 2) {
+                                location = parts[0] || '';
+                                state = parts[1] || '';
+                                application = parts[2] || '';
+                                data = parts.slice(3).join(' ') || '';
+                            }
+                        }
+                        
+                        // Separar context y extension de location si es formato "context:extension"
+                        let context = '';
+                        let extension = '';
+                        if (location.includes(':')) {
+                            const locParts = location.split(':');
+                            context = locParts[0] || '';
+                            extension = locParts[1] || '';
+                        } else {
+                            context = location;
+                        }
                         
                         calls.push({
                             channel: channel,
                             trunk: trunkName,
+                            location: location,
                             context: context,
                             extension: extension,
-                            priority: priority,
                             state: state,
                             application: application,
                             data: data
